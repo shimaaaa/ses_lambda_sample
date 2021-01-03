@@ -21,3 +21,5 @@ var/
 node_modules
 
 .terraform
+.venv
+.idea

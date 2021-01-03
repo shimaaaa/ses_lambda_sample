@@ -1,0 +1,38 @@
+service: ses-mail
+
+provider:
+  name: aws
+  runtime: python3.8
+  stage: production
+  region: ap-northeast-1
+
+  environment:
+    LOG_S3_BUCKET: seslogtest
+    MESSAGE_BODY_S3_BUCKET: seslogtest
+    SES_REGION: ap-northeast-1
+
+  iamRoleStatements:
+    - Effect: "Allow"
+      Action:
+        - "s3:GetObject"
+        - "s3:PutObject"
+        - "s3:DeleteObject"
+      Resource:
+        - "arn:aws:s3:::seslogtest/ses_message/*"
+    - Effect: "Allow"
+      Action:
+        - "ses:SendEmail"
+      Resource:
+        - "arn:aws:ses:ap-northeast-1:807236611363:identity/*"
+functions:
+  ses_send:
+    handler: handler_send.lambda_handler
+    events:
+      - sqs: arn:aws:sqs:ap-northeast-1:807236611363:ses_send_mail
+  ses_logging:
+    handler: handler_sent_log.lambda_handler
+    events:
+      - sns: arn:aws:sns:ap-northeast-1:807236611363:ses_log
+
+plugins:
+  - serverless-python-requirements

@@ -5,6 +5,7 @@ from typing import List, Optional
 
 import boto3
 import pydantic
+from jinja2 import Template
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -34,23 +35,24 @@ class SESMessage(pydantic.BaseModel):
     sender: str
     configration_set: Optional[str]
     tags: Optional[List[dict]]
-    html_message_s3_key: str
-    text_message_s3_key: Optional[str]
+    html_template_s3_key: str
+    text_template_s3_key: Optional[str]
+    html_context: dict = dict
+    text_context: dict = dict
 
     @property
     def html_message(self) -> str:
-        return _get_s3_data(self.html_message_s3_key)
+        template_data = _get_s3_data(self.html_template_s3_key)
+        template = Template(template_data)
+        return template.render(self.html_context)
 
     @property
     def text_message(self) -> Optional[str]:
-        if self.text_message_s3_key is None:
+        if self.text_template_s3_key is None:
             return None
-        return _get_s3_data(self.text_message_s3_key)
-
-    def delete_message_object(self):
-        _delete_s3_obj(self.html_message_s3_key)
-        if self.text_message_s3_key is not None:
-            _delete_s3_obj(self.text_message_s3_key)
+        template_data = _get_s3_data(self.text_template_s3_key)
+        template = Template(template_data)
+        return template.render(self.text_context)
 
     def send_mail_kwargs(self):
         kwargs = {
@@ -81,13 +83,16 @@ class SESMessage(pydantic.BaseModel):
 
 def _get_sqs_message(event) -> SESMessage:
     sqs_message = json.loads(event["Records"][0]["body"])
+    logger.info(sqs_message)
     message_recipient = sqs_message.get("message_recipient")
     message_subject = sqs_message.get("message_subject")
     message_sender = sqs_message.get("message_sender")
     ses_tags = sqs_message.get("ses_tags")
     ses_configration_set = sqs_message.get("ses_configration_set")
-    html_message_s3_key = sqs_message.get("html_message_s3_key")
-    text_message_s3_key = sqs_message.get("text_message_s3_key")
+    html_template_s3_key = sqs_message.get("html_template_s3_key")
+    text_template_s3_key = sqs_message.get("text_template_s3_key")
+    html_context = sqs_message.get("html_context")
+    text_context = sqs_message.get("text_context")
 
     message = SESMessage(
         recipient=message_recipient,
@@ -95,8 +100,10 @@ def _get_sqs_message(event) -> SESMessage:
         sender=message_sender,
         configration_set=ses_configration_set,
         tags=ses_tags,
-        html_message_s3_key=html_message_s3_key,
-        text_message_s3_key=text_message_s3_key,
+        html_template_s3_key=html_template_s3_key,
+        text_template_s3_key=text_template_s3_key,
+        html_context=html_context,
+        text_context=text_context,
     )
     return message
 
@@ -104,4 +111,3 @@ def _get_sqs_message(event) -> SESMessage:
 def lambda_handler(event, context):
     message = _get_sqs_message(event)
     ses.send_email(**message.send_mail_kwargs())
-    message.delete_message_object()

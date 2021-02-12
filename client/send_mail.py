@@ -39,8 +39,11 @@ def _send_sqs_message(recipient, sender, body_object_key):
         "message_sender": f"Sender Name <sender@snmtest10.xyz>",
         "ses_tags": [{"Name": "campaignId", "Value": "test01"}],
         "ses_configration_set": "ses_log",
-        "html_message_s3_key": body_object_key,
-        "text_message_s3_key": None,
+        "html_template_s3_key": body_object_key,
+        "text_template_s3_key": None,
+        "html_context": {
+            "test": "hello"
+        }
     }
     response = client.send_message(
         QueueUrl=queue_url_response["QueueUrl"],

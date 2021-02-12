@@ -5,6 +5,7 @@ provider:
   runtime: python3.8
   stage: production
   region: ap-northeast-1
+  memorySize: 128
 
   environment:
     LOG_S3_BUCKET: seslogtest
@@ -24,15 +25,22 @@ provider:
         - "ses:SendEmail"
       Resource:
         - "arn:aws:ses:ap-northeast-1:807236611363:identity/*"
+    - Effect: "Allow"
+      Action:
+        - "elasticfilesystem:ClientMount"
+        - "elasticfilesystem:ClientRootAccess"
+        - "elasticfilesystem:ClientWrite"
+        - "elasticfilesystem:DescribeMountTargets"
+      Resource:
+        - "arn:aws:elasticfilesystem:ap-northeast-1:807236611363:access-point/fsap-072f52ac7d16039e2/*"
 functions:
   ses_send:
     handler: handler_send.lambda_handler
     events:
       - sqs: arn:aws:sqs:ap-northeast-1:807236611363:ses_send_mail
-  ses_logging:
-    handler: handler_sent_log.lambda_handler
-    events:
-      - sns: arn:aws:sns:ap-northeast-1:807236611363:ses_log
+  ses_event_converter:
+    handler: handler_ses_event_converter.lambda_handler
+    timeout: 60
 
 plugins:
   - serverless-python-requirements
